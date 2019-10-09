@@ -39,13 +39,20 @@ var _ = Describe("Performance", func() {
 			seriesSet, _, err := querier.Select(
 				&storage.SelectParams{Start: minTimeInMilliseconds, End: maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "bigmetric", Type: labels.MatchEqual},
+				&labels.Matcher{Name: "app_id", Value: "bde5831e-a819-4a34-9a46-012fd2e821e6b", Type: labels.MatchEqual},
 			)
 			Expect(err).ToNot(HaveOccurred())
 
+			var totalPoints, totalSeries int
 			series := shared.ExplodeSeriesSet(seriesSet)
-			Expect(len(series[0].Points)).To(Equal(1000000))
+			for _, s := range series {
+				totalSeries++
+				totalPoints += len(s.Points)
+			}
+			Expect(totalSeries).To(Equal(2))
+			Expect(totalPoints).To(Equal(1000000))
 		})
-		Expect(query.Seconds()).To(BeNumerically("<", 10))
+		Expect(query.Seconds()).To(BeNumerically("<", 5))
 
 	}, 3)
 })

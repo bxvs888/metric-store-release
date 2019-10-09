@@ -82,6 +82,7 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 	shards := t.influx.ShardGroup(shardIds)
 
 	fieldSet, dimensionSet, err := shards.FieldDimensions([]string{measurementName})
+
 	if err != nil {
 		panic(err)
 	}
@@ -103,54 +104,97 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 		return nil, err
 	}
 
-	var iterators []query.Iterator
-	for _, shardId := range shardIds {
-		iterator, err := t.createIterator(shardId, measurementName, start, end, filterCondition, auxFields, dimensions)
-		if err != nil {
-			return nil, err
-		}
-		iterators = append(iterators, iterator)
+	seriesSet, err := t.GetSeriesSet(measurementName, start, end, filterCondition)
+	if err != nil {
+		// TODO - better
+		return nil, err
 	}
-
-	queryOpts := query.IteratorOptions{
-		StartTime: start,
-		EndTime:   end,
-		Ascending: true,
-		Ordered:   true,
-	}
-
-	iterator := NewParallelSortedMergeIterator(iterators, queryOpts, len(iterators))
 
 	builder := transform.NewSeriesBuilder()
 
-	// if our query was invalid, we'll have a nil iterator. let's return our
-	// empty builder so that the query returns no results.
-	if iterator == nil {
-		return builder, nil
-	}
+	for _, seriesLabels := range seriesSet {
+		seriesMatchers := make([]*labels.Matcher, len(matchers))
+		copy(seriesMatchers, matchers)
 
-	defer func() {
-		iterator.Close()
-		for _, i := range iterators {
-			i.Close()
+		// TODO - labels to matchers transform?
+		for _, seriesLabel := range seriesLabels {
+			preexisting := false
+			for _, matcher := range matchers {
+				if matcher.Name == seriesLabel.Name {
+					preexisting = true
+				}
+			}
+			if seriesLabel.Name == "__name__" || preexisting {
+				continue
+			}
+			seriesMatchers = append(seriesMatchers, &labels.Matcher{
+				Type:  labels.MatchEqual,
+				Name:  seriesLabel.Name,
+				Value: seriesLabel.Value,
+			})
 		}
-	}()
 
-	switch typedIterator := iterator.(type) {
-	case query.FloatIterator:
-		for {
-			floatPoint, err := typedIterator.Next()
+		var iterators []query.Iterator
+		for _, shardId := range shardIds {
+			seriesFilter, err := transform.ToInfluxFilters(seriesMatchers)
 			if err != nil {
-				return builder, err
+				return nil, err
 			}
-			if floatPoint == nil {
-				break
+
+			iterator, err := t.createIterator(shardId, measurementName, start, end, seriesFilter, auxFields, dimensions)
+			if err != nil {
+				return nil, err
 			}
-			builder.AddInfluxPoint(floatPoint, fields)
+			iterators = append(iterators, iterator)
 		}
-	default:
-		// fall through
+
+		queryOpts := query.IteratorOptions{
+			StartTime: start,
+			EndTime:   end,
+			Ascending: true,
+			Ordered:   true,
+		}
+
+		iterator := NewParallelSortedMergeIterator(iterators, queryOpts, len(iterators))
+
+		// if our query was invalid, we'll have a nil iterator. let's return our
+		// empty builder so that the query returns no results.
+		if iterator == nil {
+			return builder, nil
+		}
+
+		defer func() {
+			iterator.Close()
+			for _, i := range iterators {
+				i.Close()
+			}
+		}()
+
+		points := []*query.FloatPoint{}
+		switch typedIterator := iterator.(type) {
+		case query.FloatIterator:
+			for {
+				floatPoint, err := typedIterator.Next()
+
+				if err != nil {
+					return builder, err
+				}
+				if floatPoint == nil {
+					break
+				}
+				points = append(points, &query.FloatPoint{
+					Name:  floatPoint.Name,
+					Time:  floatPoint.Time,
+					Value: floatPoint.Value,
+				})
+			}
+		default:
+			// fall through
+		}
+
+		builder.AddPointsForSeries(seriesLabels, points)
 	}
+
 	return builder, nil
 }
 
