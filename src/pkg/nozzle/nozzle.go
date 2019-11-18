@@ -2,6 +2,7 @@ package nozzle
 
 import (
 	"crypto/tls"
+	"fmt"
 	"runtime"
 	"strconv"
 	"strings"
@@ -254,12 +255,14 @@ func (n *Nozzle) timerEmitter(ch chan []*rpc.Point) {
 	ticker := time.NewTicker(n.rollupInterval)
 
 	for t := range ticker.C {
+		fmt.Println("DEBUG: timerEmitter ticked")
 		timestampNano := t.Truncate(n.rollupInterval).UnixNano()
 
 		var size int
 		var points []*rpc.Point
 
 		for _, pointsBatch := range n.totalRollup.Rollup(timestampNano) {
+			fmt.Println("DEBUG: pointsBatch iteration")
 			points = append(points, pointsBatch.Points...)
 			size += pointsBatch.Size
 
@@ -307,6 +310,7 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 		if strings.ToLower(envelope.Tags["peer_type"]) == "client" {
 			return []*rpc.Point{}
 		}
+		fmt.Println("DEBUG: peer_type is not client:", envelope.Tags["peer_type"])
 
 		n.timerBuffer.Set(diodes.GenericDataType(envelope))
 	case *loggregator_v2.Envelope_Counter:
