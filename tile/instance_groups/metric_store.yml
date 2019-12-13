@@ -11,6 +11,7 @@ templates:
   - $( job "loggr-system-metrics-agent" )
   - $( job "bpm" )
   - $( job "metric-store-smoke-tests" )
+  - $( job "etcd" )
 
 resource_definitions:
 - name: cpu

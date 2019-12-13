@@ -1,0 +1,27 @@
+---
+name: etcd
+release: cfcr-etcd
+manifest: |
+  etcd:
+    metrics_protocol: https
+    metrics_port: 9916
+  tls:
+    etcd:
+      ca:  ((( etcd.ca )))
+      certificate: ((( etcd.certificate )))
+      private_key: ((( etcd.private_key )))
+    etcdctl:
+      ca:  ((( etcdctl.ca )))
+      certificate: ((( etcdctl.certificate )))
+      private_key: ((( etcdctl.private_key )))
+    etcdctl-root:
+      certificate: ((( etcdctl_root.certificate )))
+      private_key: ((( etcdctl_root.private_key )))
+    peer:
+      ca: ((( etcd_peer.ca )))
+      certificate: ((( etcd_peer.certificate )))
+      private_key: ((( etcd_peer.private_key )))
+  users:
+    - name: root
+      password: (((etcd_user_root_password)))
+      versions: [ "v2", "v3" ]

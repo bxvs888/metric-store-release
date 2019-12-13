@@ -47,3 +47,39 @@
   options:
     ca: metric_store_ca
     common_name: localhost
+
+- name: etcd
+  type: certificate
+  options:
+    ca: metric_store_ca
+    common_name: etcd
+    extended_key_usage:
+    - client_auth
+    - server_auth
+
+- name: etcdctl
+  type: certificate
+  options:
+    ca: metric_store_ca
+    common_name: etcdctl
+    extended_key_usage:
+    - client_auth
+    - server_auth
+
+- name: etcdctl_root
+  type: certificate
+  options:
+    ca: metric_store_ca
+    common_name: root
+    extended_key_usage:
+    - client_auth
+    - server_auth
+
+- name: etcd_peer
+  type: certificate
+  options:
+    ca: metric_store_ca
+    common_name: etcd_peer
+    extended_key_usage:
+    - client_auth
+    - server_auth

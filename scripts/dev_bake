@@ -1,7 +1,7 @@
 #!/bin/bash
 
 TILE_NAME=metric-store
-RELEASE_VERSION=0.0.1-build.1
+# RELEASE_VERSION=0.0.1-build.1
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.."; pwd)"
 
@@ -23,9 +23,6 @@ echo_red() {
 
 mkdir -p ${PROJECT_DIR}/tmp/releases
 
-echo_green "Creating p-metric-store release from local changes..."
-bosh create-release --force --tarball=${PROJECT_DIR}/tmp/releases/p-metric-store.tgz
-
 pushd ~/workspace/oss/metric-store-release
   echo_green "Creating metric-store release from local changes..."
   bosh create-release --force --tarball=${PROJECT_DIR}/tmp/releases/metric-store.tgz
@@ -36,6 +33,8 @@ pushd ${PROJECT_DIR}/tmp
     RELEASE_URLS=(
       https://bosh.io/d/github.com/cloudfoundry-incubator/bpm-release
       https://bosh.io/d/github.com/cloudfoundry-incubator/cf-routing-release
+      https://bosh.io/d/github.com/cloudfoundry-incubator/cfcr-etcd-release
+      https://bosh.io/d/github.com/cloudfoundry/loggregator-agent-release?v=4.0.1
     )
 
     echo_green "Fetching releases for tile..."
@@ -52,13 +51,14 @@ pushd ${PROJECT_DIR}/tmp
         done
     popd
 
-    TILE_FILE=${TILE_NAME}-${RELEASE_VERSION}.pivotal
+    erb -v stemcell_version="621.23" ${PROJECT_DIR}/tile/metadata.yml.erb > /tmp/metadata.yml
 
+    TILE_FILE=${TILE_NAME}-${RELEASE_VERSION}.pivotal
     echo_green "Baking tile $TILE_FILE"
 
     kiln bake \
         --version "$RELEASE_VERSION" \
-        --metadata ${PROJECT_DIR}/tile/metadata.yml \
+        --metadata /tmp/metadata.yml \
         --icon ${PROJECT_DIR}/tile/icon.png \
         --releases-directory releases \
         --properties-directory ${PROJECT_DIR}/tile/properties \
