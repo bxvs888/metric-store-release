@@ -1,8 +1,12 @@
 ---
 name: etcd
 release: cfcr-etcd
+provides: |
+  etcd:
+    as: etcd
 manifest: |
   etcd:
+    dns_suffix: etcd.metricstore.internal
     metrics_protocol: https
     metrics_port: 9916
   tls:
@@ -18,9 +22,9 @@ manifest: |
       certificate: ((( etcdctl_root.certificate )))
       private_key: ((( etcdctl_root.private_key )))
     peer:
-      ca: ((( etcd_peer.ca )))
-      certificate: ((( etcd_peer.certificate )))
-      private_key: ((( etcd_peer.private_key )))
+      ca: ((( etcd.ca )))
+      certificate: ((( etcd.certificate )))
+      private_key: ((( etcd.private_key )))
   users:
     - name: root
       password: (((etcd_user_root_password)))

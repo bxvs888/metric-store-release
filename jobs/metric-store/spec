@@ -15,6 +15,7 @@ templates:
   metric_store_internode_ca.crt.erb: config/certs/metric_store_internode_ca.crt
   metric_store_internode.crt.erb: config/certs/metric_store_internode.crt
   metric_store_internode.key.erb: config/certs/metric_store_internode.key
+  aliases.json.erb: dns/aliases.json
 
 packages:
 - metric-store
@@ -30,6 +31,8 @@ provides:
 consumes:
 - name: metric-store
   type: metric-store
+- name: etcd
+  type: etcd
 
 properties:
   port:
