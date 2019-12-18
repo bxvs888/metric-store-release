@@ -54,3 +54,8 @@ processes:
 
   limits:
     open_files: 65536
+  unsafe:
+    unrestricted_volumes:
+      - path: /var/vcap/jobs/etcd/config
+        allow_executions: false
+        writable: false

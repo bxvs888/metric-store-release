@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	"github.com/etcd-io/etcd/clientv3"
 	"github.com/go-kit/kit/log/level"
 	"github.com/google/uuid"
 	jsoniter "github.com/json-iterator/go"
@@ -119,8 +122,36 @@ func (api *RulesAPI) createManager(r *http.Request) apiFuncResult {
 	}
 
 	api.ruleManagers.Create(body.Data.Id, managerFile, body.Data.AlertManagerUrl)
-
+	tlsConfig, err := sharedtls.NewMutualTLSConfig(
+		"/var/vcap/jobs/etcd/config/etcdctl-ca.crt",
+		"/var/vcap/jobs/etcd/config/etcdctl.crt",
+		"/var/vcap/jobs/etcd/config/etcdctl.key",
+		"*.etcd.metricstore.internal",
+	)
+	if err != nil {
+		api.log.Error("got error: ", err)
+		panic(err)
+	}
+	cli, err := clientv3.New(clientv3.Config{
+		Endpoints:   []string{"metric-store-0.etcd.metricstore.internal:2379", "metric-store-1.etcd.metricstore.internal:2379", "metric-store-2.etcd.metricstore.internal:2379"},
+		DialTimeout: time.Second * 120,
+		TLS:         tlsConfig,
+	})
+	if err != nil {
+		api.log.Error("got error: ", err)
+		panic(err)
+	}
+	defer cli.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+	_, err = cli.Put(ctx, body.Data.Id, "{}")
+	cancel()
+	if err != nil {
+		// handle error!
+		api.log.Error("got error: ", err)
+		panic(err)
+	}
 	return apiFuncResult{body, nil}
+
 }
 
 func (api *RulesAPI) createRuleGroup(r *http.Request) apiFuncResult {
